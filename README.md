@@ -11,6 +11,10 @@
 ### [Godotenv](https://github.com/joho/godotenv)
 `go get -u github.com/joho/godotenv`
 
+
+### MongoDB Driver
+`go get -u go.mongodb.org/mongo-driver/mongo`
+
 ## Funcionalidades de la API
 
 - Registrar y consultar clientes de la empresa. 
@@ -19,9 +23,13 @@
 
 
 ## iLovePDF
-
-- [x] Obtener Public Key
 - [x] Pedir Bearer Token
+- [x] Iniciar tarea de proteccion
+- [x] Subir archivo PDF
+- [x] Procesar (proteger) archivo PDF 
+- [ ] Descargar archivo PDF protegido
+
+## Endpoints
 
 ## Referencias
 
@@ -38,6 +46,7 @@
 
 - [Bind query string or post data](https://gin-gonic.com/docs/examples/bind-query-or-post/)
 - [Bind Uri](https://gin-gonic.com/docs/examples/bind-uri/)
+- [Rendering](https://gin-gonic.com/es/docs/examples/rendering/)
 
 ### Contenido
 
@@ -46,3 +55,13 @@
 - [Rest - Wikipedia](https://es.wikipedia.org/wiki/Transferencia_de_Estado_Representacional)
 - [HTTP - Request Methods](https://en.wikipedia.org/wiki/HTTP#Request_methods)
 - [JSON](https://www.json.org/json-en.html)
+- [JSON & BSON](https://www.mongodb.com/json-and-bson)
+
+
+### MongoDB
+
+- [MongoDB Go Driver - Documentation](https://www.mongodb.com/docs/drivers/go/current/quick-start/)
+- [Golang and MongoDB](https://www.mongodb.com/languages/golang)
+- [MongoDB Atlas Golang Sample Project](https://github.com/mongodb-university/atlas_starter_go)
+- [MongoDB Go Driver reference](https://www.mongodb.com/docs/drivers/go/current/#introduction)
+- [Get _id from document](https://dev.to/yasaricli/getting-mongodb-id-for-go-4e05)

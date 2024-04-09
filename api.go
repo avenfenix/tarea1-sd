@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // iLovePDF
@@ -165,73 +170,146 @@ func pdfDownload() {
 
 // API
 
-type LoginDataAPI struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+type App struct {
+	mongoclient *mongo.Client
 }
 
-type ResUserDataAPI struct {
+type LoginData struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type Message struct {
 	Message string `json:"message"`
 }
 
-func login(c *gin.Context) {
-	var atributos LoginDataAPI
+type UserDocument struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Name      string             `json:"name"`
+	Last_name string             `json:"last_name"`
+	Rut       string             `json:"rut"`
+	Email     string             `json:"email"`
+	Password  string             `json:"password"`
+}
+
+type UserData struct {
+	ID        primitive.ObjectID `json:"_id,omitempty" json:"_id,omitempty"`
+	Name      string             `json:"name"`
+	Last_name string             `json:"last_name"`
+	Rut       string             `json:"rut"`
+	Email     string             `json:"email"`
+}
+
+type ResUserData struct {
+	Data UserData `json:"data"`
+}
+
+func (app *App) login(c *gin.Context) {
+	var atributos LoginData
 	c.ShouldBind(&atributos)
 
-}
+	// Esta registrado?
 
-func register(c *gin.Context) {
+	coll := app.mongoclient.Database("tarea1").Collection("users")
 
-}
-
-func apiClients(c *gin.Context) {
-
-}
-
-func apiProtect(c *gin.Context) {
-
-}
-
-func loadEnv() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error al leer el archivo .env")
+	var doc UserDocument
+	filter := bson.D{{Key: "email", Value: atributos.Email}}
+	err := coll.FindOne(context.TODO(), filter).Decode(&doc)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			var msg Message
+			msg.Message = "Usuario no encontrado"
+			c.JSON(404, msg)
+			return
+		}
 	}
+	if atributos.Password == doc.Password {
+		var result ResUserData
+		result.Data.ID = doc.ID
+		result.Data.Email = doc.Email
+		result.Data.Last_name = doc.Last_name
+		result.Data.Name = doc.Name
+		result.Data.Rut = doc.Rut
+
+		c.JSON(200, result)
+		return
+	}
+
+}
+
+func (app *App) register(c *gin.Context) {
+
+	// Parsing params
+	var newclient UserDocument
+	if err := c.ShouldBind(&newclient); err != nil {
+		return
+	}
+	coll := app.mongoclient.Database("tarea1").Collection("users")
+	filter := bson.D{{Key: "rut", Value: newclient.Rut}}
+	var doc UserDocument
+	err := coll.FindOne(context.TODO(), filter).Decode(&doc)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			/* Si no existe documento es porque no esta registrado,
+			   entonces insertamos el nuevo cliente
+			*/
+
+			result, err := coll.InsertOne(context.TODO(), newclient)
+			if err != nil {
+				log.Fatal(err)
+			}
+			oid, _ := result.InsertedID.(primitive.ObjectID)
+
+			var response ResUserData
+			response.Data.ID = oid
+			response.Data.Email = newclient.Email
+			response.Data.Last_name = newclient.Last_name
+			response.Data.Name = newclient.Name
+			response.Data.Rut = newclient.Rut
+
+			c.JSON(200, response)
+			return
+		}
+	}
+
+}
+
+func (app *App) clients(c *gin.Context) {
+
+}
+
+func Protect(c *gin.Context) {
+
 }
 
 func main() {
-	fmt.Println("Tarea 1 Sistemas Distribuidos")
-
-	// Variables de entorno
-	loadEnv()
-
-	/* // Get Token PDF
-	token, err := pdfAuth(os.Getenv("PUBLIC_KEY"))
-	if err != nil {
-		log.Fatal("Error al obtener autorizacion de la API")
-	}
-	// Iniciar herramienta protect
-	task_data, err := pdfStart(token)
-	if err != nil {
-		log.Fatal("Error al inicializar la herramienta")
-	}
-	upload_data, err := pdfUpload(task_data.Server, task_data.Task, token)
-	if err != nil {
-		log.Fatal("Error al subir el archivo")
+	// Cargar variables de entorno
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error al leer el archivo .env")
 	}
 
-	process_data, err := pdfProcess(task_data.Server, upload_data.Server_filename, task_data.Task, token)
-	fmt.Println(process_data) */
+	// MongoDB
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
+	opts := options.Client().ApplyURI(os.Getenv("MONGODB_URI")).SetServerAPIOptions(serverAPI)
+	mongoclient, err := mongo.Connect(context.TODO(), opts)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err = mongoclient.Disconnect(context.TODO()); err != nil {
+			panic(err)
+		}
+	}()
 
-	// Gin y Endpoints
+	app := App{
+		mongoclient: mongoclient,
+	}
+
+	// Gin
 	r := gin.Default()
-	r.POST("/login", login)
-	r.POST("/register", register)
+	r.POST("/login", app.login)
+	r.POST("/register", app.register)
+	r.POST("/api/clients", app.clients)
 
-	ip := os.Getenv("HOST")
-	port := os.Getenv("PORT")
-	conn_url := fmt.Sprintf("%s:%s", ip, port)
-	r.Run(conn_url)
+	r.Run(fmt.Sprintf("%s:%s", os.Getenv("HOST"), os.Getenv("PORT")))
 }
