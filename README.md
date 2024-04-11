@@ -31,6 +31,17 @@
 
 ## Endpoints
 
+#### `/register`
+
+
+- [ ] No filtra bien a los ya registrados (correo y rut).
+
+## Persistencia de datos
+
+- [x] Clientes
+- [x] Usuarios
+- [ ] Tokens
+
 ## Referencias
 
 ### Go
@@ -65,3 +76,10 @@
 - [MongoDB Atlas Golang Sample Project](https://github.com/mongodb-university/atlas_starter_go)
 - [MongoDB Go Driver reference](https://www.mongodb.com/docs/drivers/go/current/#introduction)
 - [Get _id from document](https://dev.to/yasaricli/getting-mongodb-id-for-go-4e05)
+
+
+### Operaciones CRUD
+
+- [Modificar documento](https://www.mongodb.com/docs/drivers/go/current/fundamentals/crud/write-operations/modify/)
+- [UpdateOne](https://www.mongodb.com/docs/drivers/go/current/usage-examples/updateOne/)
+- [Interpretar UpdateResult](https://stackoverflow.com/questions/76232471/how-can-i-read-data-from-mongo-updateresult-type-in-golang-updateone-addtose)

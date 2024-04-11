@@ -174,16 +174,11 @@ type App struct {
 	mongoclient *mongo.Client
 }
 
-type LoginData struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 type Message struct {
 	Message string `json:"message"`
 }
 
-type UserDocument struct {
+type User struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
 	Name      string             `json:"name"`
 	Last_name string             `json:"last_name"`
@@ -192,7 +187,35 @@ type UserDocument struct {
 	Password  string             `json:"password"`
 }
 
-type UserData struct {
+type LoginUser struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type RegisterUser struct {
+	Name      string `json:"name"`
+	Last_name string `json:"last_name"`
+	Rut       string `json:"rut"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+}
+
+type Client struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Name      string             `json:"name"`
+	Last_name string             `json:"last_name"`
+	Rut       string             `json:"rut"`
+	Email     string             `json:"email"`
+}
+
+type RegisterClient struct {
+	Name      string `bson:"name,omitempty" json:"name" form:"name"`
+	Last_name string `bson:"last_name,omitempty" json:"last_name" form:"last_name"`
+	Rut       string `bson:"rut,omitempty" json:"rut" form:"rut"`
+	Email     string `bson:"email,omitempty" json:"email" form:"email"`
+}
+
+type PersonalData struct {
 	ID        primitive.ObjectID `json:"_id,omitempty" json:"_id,omitempty"`
 	Name      string             `json:"name"`
 	Last_name string             `json:"last_name"`
@@ -200,38 +223,44 @@ type UserData struct {
 	Email     string             `json:"email"`
 }
 
-type ResUserData struct {
-	Data UserData `json:"data"`
+type ResPersonalData struct {
+	Data PersonalData `json:"data"`
+}
+
+type ResArrayData struct {
+	Data []PersonalData `json:"data"`
+}
+
+type IDParam struct {
+	ID primitive.ObjectID `uri:"id" binding:"required,uuid"`
 }
 
 func (app *App) login(c *gin.Context) {
-	var atributos LoginData
+	var atributos LoginUser
 	c.ShouldBind(&atributos)
-
-	// Esta registrado?
 
 	coll := app.mongoclient.Database("tarea1").Collection("users")
 
-	var doc UserDocument
+	var doc User
 	filter := bson.D{{Key: "email", Value: atributos.Email}}
 	err := coll.FindOne(context.TODO(), filter).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			var msg Message
-			msg.Message = "Usuario no encontrado"
-			c.JSON(404, msg)
+			c.JSON(404, Message{Message: "Usuario no encontrado"})
 			return
 		}
 	}
 	if atributos.Password == doc.Password {
-		var result ResUserData
-		result.Data.ID = doc.ID
-		result.Data.Email = doc.Email
-		result.Data.Last_name = doc.Last_name
-		result.Data.Name = doc.Name
-		result.Data.Rut = doc.Rut
 
-		c.JSON(200, result)
+		response := ResPersonalData{Data: PersonalData{
+			ID:        doc.ID,
+			Email:     doc.Email,
+			Name:      doc.Name,
+			Last_name: doc.Last_name,
+			Rut:       doc.Rut,
+		}}
+
+		c.JSON(200, response)
 		return
 	}
 
@@ -239,33 +268,30 @@ func (app *App) login(c *gin.Context) {
 
 func (app *App) register(c *gin.Context) {
 
-	// Parsing params
-	var newclient UserDocument
-	if err := c.ShouldBind(&newclient); err != nil {
+	var newuser RegisterUser
+	if err := c.ShouldBind(&newuser); err != nil {
 		return
 	}
 	coll := app.mongoclient.Database("tarea1").Collection("users")
-	filter := bson.D{{Key: "rut", Value: newclient.Rut}}
-	var doc UserDocument
-	err := coll.FindOne(context.TODO(), filter).Decode(&doc)
+	filter := bson.D{{Key: "rut", Value: newuser.Rut}, {Key: "email", Value: newuser.Email}}
+	var user User
+	err := coll.FindOne(context.TODO(), filter).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			/* Si no existe documento es porque no esta registrado,
-			   entonces insertamos el nuevo cliente
-			*/
 
-			result, err := coll.InsertOne(context.TODO(), newclient)
+			result, err := coll.InsertOne(context.TODO(), newuser)
 			if err != nil {
-				log.Fatal(err)
+				return
 			}
 			oid, _ := result.InsertedID.(primitive.ObjectID)
 
-			var response ResUserData
-			response.Data.ID = oid
-			response.Data.Email = newclient.Email
-			response.Data.Last_name = newclient.Last_name
-			response.Data.Name = newclient.Name
-			response.Data.Rut = newclient.Rut
+			response := ResPersonalData{Data: PersonalData{
+				ID:        oid,
+				Email:     newuser.Email,
+				Name:      newuser.Name,
+				Last_name: newuser.Last_name,
+				Rut:       newuser.Rut,
+			}}
 
 			c.JSON(200, response)
 			return
@@ -274,7 +300,160 @@ func (app *App) register(c *gin.Context) {
 
 }
 
-func (app *App) clients(c *gin.Context) {
+func (app *App) register_client(c *gin.Context) {
+	var newclient RegisterClient
+	if err := c.ShouldBind(&newclient); err != nil {
+		return
+	}
+
+	coll := app.mongoclient.Database("tarea1").Collection("clients")
+	filter := bson.D{{Key: "rut", Value: newclient.Rut}, {Key: "email", Value: newclient.Email}}
+	var client Client
+	err := coll.FindOne(context.TODO(), filter).Decode(&client)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			result, err := coll.InsertOne(context.TODO(), newclient)
+			if err != nil {
+				return
+			}
+			oid, _ := result.InsertedID.(primitive.ObjectID)
+
+			response := ResPersonalData{Data: PersonalData{
+				ID:        oid,
+				Email:     newclient.Email,
+				Name:      newclient.Name,
+				Last_name: newclient.Last_name,
+				Rut:       newclient.Rut,
+			}}
+
+			c.JSON(200, response)
+			return
+		}
+	}
+}
+
+func (app *App) get_clients(c *gin.Context) {
+	var client Client
+	c.ShouldBind(&client)
+	coll := app.mongoclient.Database("tarea1").Collection("clients")
+
+	filter := bson.D{{Key: "rut", Value: client.Rut}}
+
+	coll.Find(context.TODO(), filter)
+}
+
+func (app *App) get_clients_with_id(c *gin.Context) {
+
+	id := c.Param("id")
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return
+	}
+
+	coll := app.mongoclient.Database("tarea1").Collection("clients")
+	filter := bson.D{{Key: "_id", Value: oid}}
+	var client Client
+	err = coll.FindOne(context.TODO(), filter).Decode(&client)
+	if err != nil {
+		return
+	}
+
+	response := ResPersonalData{Data: PersonalData{
+		ID:        oid,
+		Email:     client.Email,
+		Name:      client.Name,
+		Last_name: client.Last_name,
+		Rut:       client.Rut,
+	}}
+	c.JSON(200, response)
+	return
+}
+
+func (app *App) put_clients_with_id(c *gin.Context) {
+
+	id := c.Param("id")
+	oid, err := primitive.ObjectIDFromHex(id)
+
+	var changes RegisterClient
+	if err := c.ShouldBind(&changes); err != nil {
+		return
+	}
+
+	coll := app.mongoclient.Database("tarea1").Collection("clients")
+	filter := bson.D{{Key: "_id", Value: oid}}
+
+	var old_client Client
+	err = coll.FindOne(context.TODO(), filter).Decode(&old_client)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			c.JSON(404, Message{Message: "Usuario no encontrado"})
+			return
+		}
+	}
+
+	bsonBytes, err := bson.Marshal(changes)
+	if err != nil {
+
+	}
+
+	var bsonDoc bson.D
+	err = bson.Unmarshal(bsonBytes, &bsonDoc)
+	if err != nil {
+
+	}
+
+	update := bson.D{{Key: "$set", Value: bsonDoc}}
+
+	result, err := coll.UpdateOne(context.TODO(), filter, update)
+
+	if err != nil {
+
+	}
+	var zero int64 = 0
+	if result.MatchedCount == zero {
+		c.JSON(404, Message{Message: "Usuario no encontrado"})
+		return
+	}
+	if result.ModifiedCount == 1 || result.MatchedCount == 1 {
+		response := ResPersonalData{Data: PersonalData{
+			ID:        oid,
+			Email:     old_client.Email,
+			Name:      old_client.Name,
+			Last_name: old_client.Last_name,
+			Rut:       old_client.Rut,
+		}}
+
+		c.JSON(200, response)
+		return
+	}
+
+}
+
+func (app *App) del_clients_with_id(c *gin.Context) {
+	id := c.Param("id")
+	oid, _ := primitive.ObjectIDFromHex(id)
+
+	coll := app.mongoclient.Database("tarea1").Collection("clients")
+	filter := bson.D{{Key: "_id", Value: oid}}
+	var client Client
+	err := coll.FindOne(context.TODO(), filter).Decode(&client)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			c.JSON(404, Message{Message: "Usuario no encontrado"})
+			return
+		}
+	}
+	result, _ := coll.DeleteOne(context.TODO(), filter)
+	if result.DeletedCount == 1 {
+		response := ResPersonalData{Data: PersonalData{
+			ID:        oid,
+			Email:     client.Email,
+			Name:      client.Name,
+			Last_name: client.Last_name,
+			Rut:       client.Rut,
+		}}
+		c.JSON(200, response)
+	}
 
 }
 
@@ -309,7 +488,11 @@ func main() {
 	r := gin.Default()
 	r.POST("/login", app.login)
 	r.POST("/register", app.register)
-	r.POST("/api/clients", app.clients)
+	r.POST("/api/clients", app.register_client)
+	r.GET("/api/clients", app.get_clients)
+	r.GET("/api/clients/:id", app.get_clients_with_id)
+	r.PUT("/api/clients/:id", app.put_clients_with_id)
+	r.DELETE("/api/clients/:id", app.del_clients_with_id)
 
 	r.Run(fmt.Sprintf("%s:%s", os.Getenv("HOST"), os.Getenv("PORT")))
 }
