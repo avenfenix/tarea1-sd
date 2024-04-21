@@ -202,10 +202,10 @@ type RegisterUser struct {
 
 type Client struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	Name      string             `json:"name"`
-	Last_name string             `json:"last_name"`
-	Rut       string             `json:"rut"`
-	Email     string             `json:"email"`
+	Name      string             `bson:"name" json:"name"`
+	Last_name string             `bson:"last_name" json:"last_name"`
+	Rut       string             `bson:"rut" json:"rut"`
+	Email     string             `bson:"email" json:"email"`
 }
 
 type RegisterClient struct {
@@ -216,11 +216,11 @@ type RegisterClient struct {
 }
 
 type PersonalData struct {
-	ID        primitive.ObjectID `json:"_id,omitempty" json:"_id,omitempty"`
-	Name      string             `json:"name"`
-	Last_name string             `json:"last_name"`
-	Rut       string             `json:"rut"`
-	Email     string             `json:"email"`
+	ID        string 			 `json:"id" bson:"_id"`
+	Name      string             `json:"name" bson:"name"`
+	Last_name string             `json:"last_name" bson:"last_name"`
+	Rut       string             `json:"rut" bson:"rut`
+	Email     string             `json:"email" bson:"email"`
 }
 
 type ResPersonalData struct {
@@ -231,8 +231,44 @@ type ResArrayData struct {
 	Data []PersonalData `json:"data"`
 }
 
+type FormGetClient struct {
+	Rut string `form:"rut"`
+}
+
+func (f FormGetClient) toBsonD() bson.D {
+	filter := bson.D{}
+	if f.Rut != ""{
+		filter = append(filter, bson.E{Key:"rut", Value: f.Rut})
+	}
+	return filter
+}
+
+
+// Estructuras de prueba
+
+type ResClients struct {
+	Data []Client `json:"data" bson:"data"`
+}
+
 type IDParam struct {
 	ID primitive.ObjectID `uri:"id" binding:"required,uuid"`
+}
+
+/////////////////////////
+
+
+func TransformAll(clients []Client) ResArrayData{
+	var response ResArrayData
+	for _, client := range clients{
+		var res PersonalData
+		res.ID = client.ID.Hex()
+		res.Name = client.Name
+		res.Last_name = client.Last_name
+		res.Rut = client.Rut
+		res.Email = client.Email
+		response.Data = append(response.Data, res)
+	}
+	return response
 }
 
 func (app *App) login(c *gin.Context) {
@@ -247,13 +283,13 @@ func (app *App) login(c *gin.Context) {
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			c.JSON(404, Message{Message: "Usuario no encontrado"})
-			return
 		}
+		return
 	}
 	if atributos.Password == doc.Password {
 
 		response := ResPersonalData{Data: PersonalData{
-			ID:        doc.ID,
+			ID:        doc.ID.Hex(),
 			Email:     doc.Email,
 			Name:      doc.Name,
 			Last_name: doc.Last_name,
@@ -263,6 +299,7 @@ func (app *App) login(c *gin.Context) {
 		c.JSON(200, response)
 		return
 	}
+	c.Status(500)
 
 }
 
@@ -286,7 +323,7 @@ func (app *App) register(c *gin.Context) {
 			oid, _ := result.InsertedID.(primitive.ObjectID)
 
 			response := ResPersonalData{Data: PersonalData{
-				ID:        oid,
+				ID:        oid.Hex(),
 				Email:     newuser.Email,
 				Name:      newuser.Name,
 				Last_name: newuser.Last_name,
@@ -319,7 +356,7 @@ func (app *App) register_client(c *gin.Context) {
 			oid, _ := result.InsertedID.(primitive.ObjectID)
 
 			response := ResPersonalData{Data: PersonalData{
-				ID:        oid,
+				ID:        oid.Hex(),
 				Email:     newclient.Email,
 				Name:      newclient.Name,
 				Last_name: newclient.Last_name,
@@ -333,13 +370,31 @@ func (app *App) register_client(c *gin.Context) {
 }
 
 func (app *App) get_clients(c *gin.Context) {
-	var client Client
-	c.ShouldBind(&client)
+
+	var form FormGetClient
+	if err:= c.ShouldBind(&form); err != nil{}
+
 	coll := app.mongoclient.Database("tarea1").Collection("clients")
 
-	filter := bson.D{{Key: "rut", Value: client.Rut}}
+	cursor, err := coll.Find(context.TODO(), form.toBsonD() )
+	if err != nil{
+		c.Status(500)
+		return
+	}
 
-	coll.Find(context.TODO(), filter)
+	var results []Client
+	
+	err = cursor.All(context.TODO(), &results)
+	if err != nil{
+		c.Status(500 )
+		return
+	}
+
+	response := TransformAll(results)
+
+
+	c.JSON(200, response)
+	return
 }
 
 func (app *App) get_clients_with_id(c *gin.Context) {
@@ -359,7 +414,7 @@ func (app *App) get_clients_with_id(c *gin.Context) {
 	}
 
 	response := ResPersonalData{Data: PersonalData{
-		ID:        oid,
+		ID:        oid.Hex(),
 		Email:     client.Email,
 		Name:      client.Name,
 		Last_name: client.Last_name,
@@ -416,7 +471,7 @@ func (app *App) put_clients_with_id(c *gin.Context) {
 	}
 	if result.ModifiedCount == 1 || result.MatchedCount == 1 {
 		response := ResPersonalData{Data: PersonalData{
-			ID:        oid,
+			ID:        oid.Hex(),
 			Email:     old_client.Email,
 			Name:      old_client.Name,
 			Last_name: old_client.Last_name,
@@ -446,7 +501,7 @@ func (app *App) del_clients_with_id(c *gin.Context) {
 	result, _ := coll.DeleteOne(context.TODO(), filter)
 	if result.DeletedCount == 1 {
 		response := ResPersonalData{Data: PersonalData{
-			ID:        oid,
+			ID:        oid.Hex(),
 			Email:     client.Email,
 			Name:      client.Name,
 			Last_name: client.Last_name,
@@ -460,6 +515,8 @@ func (app *App) del_clients_with_id(c *gin.Context) {
 func Protect(c *gin.Context) {
 
 }
+
+
 
 func main() {
 	// Cargar variables de entorno

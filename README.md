@@ -46,6 +46,7 @@
 
 ### Go
 
+- [For loops](https://yourbasic.org/golang/for-loop/)
 - [Diferencia entre go get/go install](https://stackoverflow.com/questions/24878737/what-is-the-difference-between-go-get-and-go-install)
 - [Variables de entorno](https://blog.friendsofgo.tech/posts/trabajando-con-variables-de-entorno-en-go/)
 - [Encoding and Decoding JSON with http request](https://kevin.burke.dev/kevin/golang-json-http/#:~:text=type%20User%20struct%7B%20Id%20string%20Balance%20uint64%20%7D,first%20and%20then%20copy%20that%20to%20a%20reader.)

@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type LoginUser struct {
@@ -33,16 +32,21 @@ type RegisterClient struct {
 }
 
 type PersonalData struct {
-	ID        primitive.ObjectID `json:"_id,omitempty" json:"_id,omitempty"`
-	Name      string             `json:"name"`
-	Last_name string             `json:"last_name"`
-	Rut       string             `json:"rut"`
-	Email     string             `json:"email"`
+	ID        string 			 `json:"id" bson:"id"`
+	Name      string             `json:"name" bson:"name"`
+	Last_name string             `json:"last_name" bson:"last_name"`
+	Rut       string             `json:"rut" bson:"rut`
+	Email     string             `json:"email" bson:"email"`
 }
 
 type ResPersonalData struct {
 	Data PersonalData `json:"data"`
 }
+
+type ResArrayData struct {
+	Data []PersonalData `json:"data"`
+}
+
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -87,10 +91,12 @@ func main() {
 				res, _ := client.Do(req)
 				defer res.Body.Close()
 
-				if res.Header.Get("Content-Type") == "application/json; charset=utf-8" {
+				if res.StatusCode == 200 {
 					fmt.Println("¡Login exitoso!")
 					menu = false
 					menu_usuario = true
+				} else {
+					fmt.Println("Ha ocurrido un error al iniciar sesion!")
 				}
 
 			}
@@ -126,8 +132,10 @@ func main() {
 				}
 				defer re.Body.Close()
 
-				if re.Header.Get("Content-Type") == "application/json; charset=utf-8" {
+				if re.StatusCode == 200 {
 					fmt.Println("¡Registro exitoso!")
+				} else{
+					fmt.Println("Ha ocurrido un error al registrarse!")
 				}
 			}
 		case "3":
@@ -169,26 +177,85 @@ func main() {
 							req, _ := http.NewRequest("GET", url, nil)
 							client := &http.Client{}
 							res, _ := client.Do(req)
-							fmt.Print(res)
+							defer res.Body.Close()
+
+							var datos ResArrayData
+							json.NewDecoder(res.Body).Decode(&datos)
+							
+
+							if res.StatusCode == 200 {
+								for _, d := range datos.Data {
+									fmt.Println("---")
+									fmt.Printf("ID: %s\n", d.ID)
+									fmt.Printf("Nombre: %s\n", d.Name)
+									fmt.Printf("Apellido: %s\n", d.Last_name)
+									fmt.Printf("RUT: %s\n", d.Rut)
+									fmt.Printf("Email: %s\n", d.Email)
+									
+								}
+								fmt.Println("---")
+							} else {
+								fmt.Println("Error al obtener cliente/s!")
+							}
 						}
 					case "2":
 						{
 							// Obtener un cliente por ID
-							id := ""
+							var id string
+							fmt.Print("Ingrese el ID a buscar: ")
+							fmt.Scanln(&id)
+							fmt.Print("\n")
 							url := fmt.Sprintf("http://%s:%s/api/clients/%s", os.Getenv("HOST"), os.Getenv("PORT"), id)
 							req, _ := http.NewRequest("GET", url, nil)
-							client := &http.Client{}
-							res, _ := client.Do(req)
-							fmt.Print(res)
+							http_client := &http.Client{}
+							res, _ := http_client.Do(req)
+							var datos ResPersonalData
+							json.NewDecoder(res.Body).Decode(&datos)
+							defer res.Body.Close()
+							if res.StatusCode == 200 {
+								fmt.Println("---")
+								fmt.Printf("ID: %s\n", datos.Data.ID)
+								fmt.Printf("Nombre: %s\n", datos.Data.Name)
+								fmt.Printf("Apellido: %s\n", datos.Data.Last_name)
+								fmt.Printf("RUT: %s\n", datos.Data.Rut)
+								fmt.Printf("Email: %s\n", datos.Data.Email)
+								fmt.Println("---")
+							} else {
+								fmt.Println("Error al obtener el cliente!")
+							}
 						}
+
 					case "3":
 						{
 							// Obtener un cliente por RUT
-							url := fmt.Sprintf("http://%s:%s/api/clients", os.Getenv("HOST"), os.Getenv("PORT"))
+							var rut string
+							fmt.Print("Ingrese el RUT a buscar: ")
+							fmt.Scanln(&rut)
+							fmt.Print("\n")
+							url := fmt.Sprintf("http://%s:%s/api/clients?rut=%s", os.Getenv("HOST"), os.Getenv("PORT"), rut)
 							req, _ := http.NewRequest("GET", url, nil)
 							client := &http.Client{}
 							res, _ := client.Do(req)
-							fmt.Print(res)
+							defer res.Body.Close()
+
+							var datos ResArrayData
+							json.NewDecoder(res.Body).Decode(&datos)
+							
+
+							if res.StatusCode == 200 {
+								for _, d := range datos.Data {
+									fmt.Println("---")
+									fmt.Printf("ID: %s\n", d.ID)
+									fmt.Printf("Nombre: %s\n", d.Name)
+									fmt.Printf("Apellido: %s\n", d.Last_name)
+									fmt.Printf("RUT: %s\n", d.Rut)
+									fmt.Printf("Email: %s\n", d.Email)
+									
+								}
+								fmt.Println("---")
+							} else {
+								fmt.Println("Error al obtener el cliente!")
+							}
 						}
 					case "4":
 						{
@@ -214,7 +281,7 @@ func main() {
 							client := &http.Client{}
 							re, _ := client.Do(req)
 							if re.Header.Get("Content-Type") == "application/json; charset=utf-8" {
-								fmt.Printf("¡Cliente “%s” creado con éxito\n", newclient.Name)
+								fmt.Printf("¡Cliente “%s” creado con éxito!\n", newclient.Name)
 							}
 						}
 					case "5":
