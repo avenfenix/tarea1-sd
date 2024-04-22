@@ -46,6 +46,8 @@
 
 ### Go
 
+
+- [Trabajando con varios modulos](https://go.dev/doc/tutorial/workspaces)
 - [For loops](https://yourbasic.org/golang/for-loop/)
 - [Diferencia entre go get/go install](https://stackoverflow.com/questions/24878737/what-is-the-difference-between-go-get-and-go-install)
 - [Variables de entorno](https://blog.friendsofgo.tech/posts/trabajando-con-variables-de-entorno-en-go/)
@@ -59,6 +61,8 @@
 - [Bind query string or post data](https://gin-gonic.com/docs/examples/bind-query-or-post/)
 - [Bind Uri](https://gin-gonic.com/docs/examples/bind-uri/)
 - [Rendering](https://gin-gonic.com/es/docs/examples/rendering/)
+- [Upload Files](https://gin-gonic.com/docs/examples/upload-file/single-file/)
+- [Ejemplo - Binding File](https://github.com/gin-gonic/examples/blob/master/file-binding/main.go)
 
 ### Contenido
 

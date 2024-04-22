@@ -141,6 +141,7 @@ func main() {
 		case "3":
 			{
 				menu = false
+				fmt.Println("¡Vuelve pronto!")
 			}
 		}
 	}
@@ -286,25 +287,58 @@ func main() {
 						}
 					case "5":
 						{
-							// Actualizar datos de un cliente
-							url := fmt.Sprintf("http://%s:%s/api/clients", os.Getenv("HOST"), os.Getenv("PORT"))
-							req, _ := http.NewRequest("PUT", url, nil)
+							// Actualizar datos de un cliente por ID
+							var id string
+							fmt.Print("Ingrese el ID a modificar: ")
+							fmt.Scanln(&id)
+							fmt.Print("\n")
+
+							fmt.Println("Rellene los datos. Espacio en blanco => dejar sin modificacion.")
+
+							var newclient RegisterClient
+							fmt.Print("Ingrese nombre del cliente: ")
+							fmt.Scanln(&newclient.Name)
+							fmt.Print("Ingrese apellido: ")
+							fmt.Scanln(&newclient.Last_name)
+							fmt.Print("Ingrese RUT del cliente: ")
+							fmt.Scanln(&newclient.Rut)
+							fmt.Print("Ingrese el correo del cliente: ")
+							fmt.Scanln(&newclient.Email)
+
+							data := new(bytes.Buffer)
+							json.NewEncoder(data).Encode(newclient)
+
+							url := fmt.Sprintf("http://%s:%s/api/clients/%s", os.Getenv("HOST"), os.Getenv("PORT"), id)
+
+							req, _ := http.NewRequest("PUT", url, data)
+							req.Header.Set("Content-Type", "application/json")
 							client := &http.Client{}
 							res, _ := client.Do(req)
-							fmt.Print(res)
+							if res.StatusCode == 200{
+								fmt.Println("Cliente modificado con exito!")
+							}
 						}
 					case "6":
 						{
+							var id string
+							fmt.Print("Ingrese el ID a modificar: ")
+							fmt.Scanln(&id)
+							fmt.Print("\n")
 							// Borrar un cliente por ID
-							url := fmt.Sprintf("http://%s:%s/api/clients", os.Getenv("HOST"), os.Getenv("PORT"))
-							req, _ := http.NewRequest("GET", url, nil)
+							url := fmt.Sprintf("http://%s:%s/api/clients/%s", os.Getenv("HOST"), os.Getenv("PORT"), id)
+							req, _ := http.NewRequest("DELETE", url, nil)
+
 							client := &http.Client{}
 							res, _ := client.Do(req)
-							fmt.Print(res)
+							if res.StatusCode == 200{
+								fmt.Println("Cliente eliminado con exito!")
+							}
 						}
 					case "7":
 						{
 							menu_cliente = false
+							menu_usuario = true
+
 						}
 					}
 					line = ""

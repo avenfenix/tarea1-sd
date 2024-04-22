@@ -511,8 +511,6 @@ type BindFile struct{
 	File	*multipart.FileHeader	`form:"file" binding:"required"`
 }
 
-type  
-
 func (app *App) Protect(c *gin.Context) {
 	var bind BindFile
 	if err := c.ShouldBind(&bind); err != nil{
@@ -527,8 +525,7 @@ func (app *App) Protect(c *gin.Context) {
 	}
 
 	token, err := pdfAuth()
-	coll := app.mongoclient.Database("tarea1").Collection("tokens")
-
+	fmt.Println(token)
 }
 
 
