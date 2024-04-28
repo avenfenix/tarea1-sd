@@ -56,33 +56,78 @@ func (op *Operations) startTask(tool string) {
 
 }
 
-func (op *Operations) addFile(filePath string) {
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		fmt.Println("El archivo especificado no existe")
+func (op *Operations) addFile(filename string) error {
+	// Verificar si el archivo existe
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return fmt.Errorf("El archivo especificado no existe: %s", filename)
 	}
-	fmt.Println("Adding file:", filePath)
+
+	// Construir la URL de la solicitud
 	url := fmt.Sprintf("https://%s/v1/upload", op.Server)
+
+	// Abrir el archivo
+	file, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("Error al abrir el archivo: %v", err)
+	}
+	defer file.Close()
+
+	// Crear un buffer para el cuerpo del formulario
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, _ := writer.CreateFormFile("file", filepath.Base(filePath))
-	file, _ := os.Open(filePath)
-	io.Copy(part, file)
-	file.Close()
-	writer.Close()
-	req, _ := http.NewRequest("POST", url, body)
-	req.Header.Set("Authorization", "Bearer "+op.Token)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	resp, _ := http.DefaultClient.Do(req)
-	var result map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&result)
-	resp.Body.Close()
 
-	if result["server_filename"] != nil {
-		op.Files = append(op.Files, map[string]string{
-			"server_filename": result["server_filename"].(string),
-			"filename":        filePath,
-		})
+	// Agregar el archivo al formulario
+	part, err := writer.CreateFormFile("file", filepath.Base(filename))
+	if err != nil {
+		return fmt.Errorf("Error al crear la parte del formulario: %v", err)
 	}
+	if _, err = io.Copy(part, file); err != nil {
+		return fmt.Errorf("Error al copiar el contenido del archivo: %v", err)
+	}
+
+	// Agregar el parámetro "task" al formulario
+	writer.WriteField("task", op.TaskID)
+
+	// Cerrar el escritor multipart
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("Error al cerrar el escritor multipart: %v", err)
+	}
+
+	// Crear la solicitud HTTP POST
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return fmt.Errorf("Error al crear la solicitud HTTP: %v", err)
+	}
+
+	// Establecer el tipo de contenido en la solicitud
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Agregar el encabezado de autorización
+	req.Header.Set("Authorization", "Bearer "+op.Token)
+
+	// Realizar la solicitud HTTP
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("Error al realizar la solicitud HTTP: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Decodificar la respuesta JSON
+	var response map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return fmt.Errorf("Error al decodificar la respuesta JSON: %v", err)
+	}
+
+	// Verificar si el archivo se agregó correctamente
+	if serverFilename, ok := response["server_filename"].(string); ok {
+		op.Files = append(op.Files, map[string]string{
+			"server_filename": serverFilename,
+			"filename":        filename,
+		})
+		return nil
+	}
+
+	return fmt.Errorf("Error al agregar el archivo: %v", response)
 }
 
 func (op *Operations) execute(password string) {
@@ -97,12 +142,6 @@ func (op *Operations) execute(password string) {
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	req.Header.Set("Authorization", "Bearer "+op.Token)
 	req.Header.Set("Content-Type", "application/json")
-
-	// Imprimir la solicitud HTTP antes de enviarla
-	fmt.Println("Sending request to:", url)
-	fmt.Println("Request body:", string(jsonData))
-	fmt.Println("Authorization header:", req.Header)
-	fmt.Println("Content-Type header:", req.Header.Get("Content-Type"))
 
 	// Enviar la solicitud HTTP
 	resp, err := http.DefaultClient.Do(req)
@@ -141,7 +180,7 @@ func (op *Operations) download(outputFilename string) {
 func main() {
 	publicKey := "project_public_db7deec963dc9219b319768d2766bfc6_9-1mScb0a712112737d004c62656bb16f2eb1"
 	op := NewOperations(publicKey)
-	op.startTask("protect")
+	op.startTask("protegido")
 
 	var password, path string
 
