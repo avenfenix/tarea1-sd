@@ -1,15 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-
-	"mime/multipart"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -19,271 +14,52 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// iLovePDF
-
-type ResAuthPDF struct {
-	Token string `json:"token"`
-}
-
-type ReqAuthPDF struct {
-	Public_key string `json:"public_key"`
-}
-
-type ResStartPDF struct {
-	Server string `json:"server"`
-	Task   string `json:"task"`
-}
-
-type ResUploadPDF struct {
-	Server_filename string `json:"server_filename"`
-}
-
-type ReqUploadPDF struct {
-	Task       string `json:"task"`
-	Cloud_file string `json:"cloud_file"`
-}
-
-type ReqProcessPDF struct {
-	Task  string    `json:"task"`
-	Tool  string    `json:"tool"`
-	Files []FilePDF `json:"files"`
-}
-
-type FilePDF struct {
-	Server_filename string `json:"server_filename"`
-	Filename        string `json:"filename"`
-}
-
-type ResProcessPDF struct {
-	Download_filename string `json:"download_filename"`
-	Filesize          int    `json:"filesize"`
-	Output_filesize   int    `json:"output_filesize"`
-	Output_filenumber int    `json:"output_filenumber"`
-	Output_extensions string `json:"output_extensions"`
-	Timer             string `json:"timer"`
-	Status            string `json:"status"`
-}
-
-func pdfAuth() (string, error) {
-
-	rd := &ReqAuthPDF{Public_key: os.Getenv("PUBLIC_KEY")}
-	data := new(bytes.Buffer)
-	json.NewEncoder(data).Encode(rd)
-
-	request, err := http.NewRequest("POST", "https://api.ilovepdf.com/v1/auth", data)
-	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	if err != nil {
-		return "", err
-	}
-
-	client := &http.Client{}
-	re, err := client.Do(request)
-	if err != nil {
-		return "", err
-	}
-	defer re.Body.Close()
-
-	var response ResAuthPDF
-	json.NewDecoder(re.Body).Decode(&response)
-	return response.Token, nil
-}
-
-func pdfStart(token string) (*ResStartPDF, error) {
-
-	req, err := http.NewRequest("GET", "https://api.ilovepdf.com/v1/start/protect", nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{}
-	res, err := client.Do(req)
-	defer res.Body.Close()
-
-	var response ResStartPDF
-
-	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, err
-	}
-	return &response, nil
-}
-
-func pdfUpload(server string, task string, token string) (*ResUploadPDF, error) {
-
-	rd := &ReqUploadPDF{Task: task, Cloud_file: ""}
-	data := new(bytes.Buffer)
-	json.NewEncoder(data).Encode(rd)
-	url := fmt.Sprintf("https://%s/v1/upload", server, data)
-
-	req, err := http.NewRequest("POST", url, nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{}
-	res, err := client.Do(req)
-	defer res.Body.Close()
-
-	var response ResUploadPDF
-
-	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, err
-	}
-	return &response, nil
-}
-
-func pdfProcess(server string, server_filename string, task string, token string) (*ResProcessPDF, error) {
-	files := []FilePDF{FilePDF{
-		Server_filename: server_filename,
-		Filename:        "file.pdf",
-	}}
-
-	rd := &ReqProcessPDF{Task: task, Tool: "protect", Files: files}
-	data := new(bytes.Buffer)
-	json.NewEncoder(data).Encode(rd)
-	url := fmt.Sprintf("https://%s/v1/process", server)
-
-	req, err := http.NewRequest("POST", url, data)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	var response ResProcessPDF
-
-	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, err
-	}
-
-	return &response, nil
-}
-
-func pdfDownload() {
-
-}
-
-// API
-
 type App struct {
 	mongoclient *mongo.Client
 }
 
-type Message struct {
-	Message string `json:"message"`
-}
+// Usuario
 
 type User struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	Name      string             `json:"name"`
-	Last_name string             `json:"last_name"`
-	Rut       string             `json:"rut"`
-	Email     string             `json:"email"`
-	Password  string             `json:"password"`
-}
-
-type LoginUser struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type RegisterUser struct {
-	Name      string `json:"name"`
-	Last_name string `json:"last_name"`
-	Rut       string `json:"rut"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-}
-
-type Client struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	Name      string             `bson:"name" json:"name"`
-	Last_name string             `bson:"last_name" json:"last_name"`
-	Rut       string             `bson:"rut" json:"rut"`
-	Email     string             `bson:"email" json:"email"`
-}
-
-type RegisterClient struct {
-	Name      string `bson:"name,omitempty" json:"name" form:"name"`
-	Last_name string `bson:"last_name,omitempty" json:"last_name" form:"last_name"`
-	Rut       string `bson:"rut,omitempty" json:"rut" form:"rut"`
-	Email     string `bson:"email,omitempty" json:"email" form:"email"`
-}
-
-type PersonalData struct {
-	ID        string 			 `json:"id" bson:"_id"`
-	Name      string             `json:"name" bson:"name"`
+	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	Name      string             `json:"name" bson:"name" `
 	Last_name string             `json:"last_name" bson:"last_name"`
-	Rut       string             `json:"rut" bson:"rut`
+	Rut       string             `json:"rut" bson:"rut"`
 	Email     string             `json:"email" bson:"email"`
+	Password  string             `json:"password" bson:"password"`
 }
 
-type ResPersonalData struct {
-	Data PersonalData `json:"data"`
-}
-
-type ResArrayData struct {
-	Data []PersonalData `json:"data"`
-}
-
-type FormGetClient struct {
-	Rut string `form:"rut"`
-}
-
-func (f FormGetClient) toBsonD() bson.D {
-	filter := bson.D{}
-	if f.Rut != ""{
-		filter = append(filter, bson.E{Key:"rut", Value: f.Rut})
-	}
-	return filter
-}
-
-
-func TransformAll(clients []Client) ResArrayData{
-	var response ResArrayData
-	for _, client := range clients{
-		var res PersonalData
-		res.ID = client.ID.Hex()
-		res.Name = client.Name
-		res.Last_name = client.Last_name
-		res.Rut = client.Rut
-		res.Email = client.Email
-		response.Data = append(response.Data, res)
-	}
-	return response
-}
-
-func (app *App) login(c *gin.Context) {
-	var atributos LoginUser
-	c.ShouldBind(&atributos)
+func (app *App) LoginUsuario(c *gin.Context) {
+	var credenciales User
+	c.ShouldBind(&credenciales)
 
 	coll := app.mongoclient.Database("tarea1").Collection("users")
 
 	var doc User
-	filter := bson.D{{Key: "email", Value: atributos.Email}}
+
+	// Filtro para encontrar usuario.
+	filter := bson.D{{Key: "email", Value: credenciales.Email}}
+
+	// Buscamos en la coleccion si existe y lo recuperamos
 	err := coll.FindOne(context.TODO(), filter).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			c.JSON(404, Message{Message: "Usuario no encontrado"})
+			c.JSON(404, map[string]interface{}{"message": "Usuario no encontrado"})
 		}
 		return
 	}
-	if atributos.Password == doc.Password {
 
-		response := ResPersonalData{Data: PersonalData{
-			ID:        doc.ID.Hex(),
-			Email:     doc.Email,
-			Name:      doc.Name,
-			Last_name: doc.Last_name,
-			Rut:       doc.Rut,
-		}}
+	// Revisar credenciales
+	if credenciales.Password == doc.Password {
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"_id":       doc.ID.Hex(),
+				"email":     doc.Email,
+				"name":      doc.Name,
+				"last_name": doc.Last_name,
+				"rut":       doc.Rut,
+			},
+		}
 
 		c.JSON(200, response)
 		return
@@ -292,32 +68,43 @@ func (app *App) login(c *gin.Context) {
 
 }
 
-func (app *App) register(c *gin.Context) {
+func (app *App) RegistrarUsuario(c *gin.Context) {
+	// Respuesta predeterminada
+	response := map[string]interface{}{"message": "Error al registrar cliente"}
 
-	var newuser RegisterUser
-	if err := c.ShouldBind(&newuser); err != nil {
+	// Recuperamos payload usuario
+	var nuevoUsuario User
+	if err := c.ShouldBind(&nuevoUsuario); err != nil {
 		return
 	}
+
+	// Filtro para revisar si usuario esta registrado.
+	// No puede repetirse ni el rut ni el correo.
+	filter := bson.D{{Key: "rut", Value: nuevoUsuario.Rut}, {Key: "email", Value: nuevoUsuario.Email}}
+
 	coll := app.mongoclient.Database("tarea1").Collection("users")
-	filter := bson.D{{Key: "rut", Value: newuser.Rut}, {Key: "email", Value: newuser.Email}}
-	var user User
-	err := coll.FindOne(context.TODO(), filter).Decode(&user)
+
+	// Revisamos si ya esta registrado
+	err := coll.FindOne(context.TODO(), filter).Err()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-
-			result, err := coll.InsertOne(context.TODO(), newuser)
+			// Si no esta registrado lo insertamos en la base de datos
+			result, err := coll.InsertOne(context.TODO(), nuevoUsuario)
 			if err != nil {
+				c.JSON(400, response)
 				return
 			}
 			oid, _ := result.InsertedID.(primitive.ObjectID)
 
-			response := ResPersonalData{Data: PersonalData{
-				ID:        oid.Hex(),
-				Email:     newuser.Email,
-				Name:      newuser.Name,
-				Last_name: newuser.Last_name,
-				Rut:       newuser.Rut,
-			}}
+			response := map[string]interface{}{
+				"data": map[string]interface{}{
+					"_id":       oid.Hex(),
+					"email":     nuevoUsuario.Email,
+					"name":      nuevoUsuario.Name,
+					"last_name": nuevoUsuario.Last_name,
+					"rut":       nuevoUsuario.Rut,
+				},
+			}
 
 			c.JSON(200, response)
 			return
@@ -326,212 +113,259 @@ func (app *App) register(c *gin.Context) {
 
 }
 
-func (app *App) register_client(c *gin.Context) {
-	var newclient RegisterClient
-	if err := c.ShouldBind(&newclient); err != nil {
+// Clientes
+
+type Client struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Name      string             `bson:"name,omitempty" json:"name,omitempty"`
+	Last_name string             `bson:"last_name,omitempty" json:"last_name,omitempty"`
+	Rut       string             `bson:"rut,omitempty" json:"rut,omitempty"`
+	Email     string             `bson:"email,omitempty" json:"email,omitempty"`
+}
+
+func (app *App) RegistarCliente(c *gin.Context) {
+	// Respuesta predeterminada
+	response := map[string]interface{}{"message": "Error al registrar cliente"}
+
+	// Recuperamos payload cliente
+	var nuevoCliente Client
+	if err := c.ShouldBind(&nuevoCliente); err != nil {
+		c.JSON(400, response)
 		return
 	}
 
+	// Buscamos en la base de datos si el cliente existe
+	// No puede repetirse ni el rut ni el correo.
+	filter := bson.D{{Key: "rut", Value: nuevoCliente.Rut}, {Key: "email", Value: nuevoCliente.Email}}
 	coll := app.mongoclient.Database("tarea1").Collection("clients")
-	filter := bson.D{{Key: "rut", Value: newclient.Rut}, {Key: "email", Value: newclient.Email}}
-	var client Client
-	err := coll.FindOne(context.TODO(), filter).Decode(&client)
+	err := coll.FindOne(context.TODO(), filter).Err()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			result, err := coll.InsertOne(context.TODO(), newclient)
+			// Si no existe podemos registrar el cliente
+			result, err := coll.InsertOne(context.TODO(), nuevoCliente)
 			if err != nil {
+				c.JSON(400, response)
 				return
 			}
 			oid, _ := result.InsertedID.(primitive.ObjectID)
 
-			response := ResPersonalData{Data: PersonalData{
-				ID:        oid.Hex(),
-				Email:     newclient.Email,
-				Name:      newclient.Name,
-				Last_name: newclient.Last_name,
-				Rut:       newclient.Rut,
-			}}
+			response := map[string]interface{}{
+				"data": map[string]interface{}{
+					"_id":       oid.Hex(),
+					"email":     nuevoCliente.Email,
+					"name":      nuevoCliente.Name,
+					"last_name": nuevoCliente.Last_name,
+					"rut":       nuevoCliente.Rut,
+				},
+			}
 
 			c.JSON(200, response)
 			return
 		}
 	}
+
+	c.JSON(400, response)
 }
 
-func (app *App) get_clients(c *gin.Context) {
+type FormGetClient struct {
+	Rut string `form:"rut"`
+}
+
+func (f FormGetClient) toFilter() bson.D {
+	filter := bson.D{}
+	// Aqui podemos personalizar los filtros
+	if f.Rut != "" {
+		filter = append(filter, bson.E{Key: "rut", Value: f.Rut})
+	}
+	return filter
+}
+
+func (app *App) getClients(c *gin.Context) {
+	// Respuesta predeterminada
+	response := map[string]interface{}{"message": "Error al obtener los clientes"}
 
 	var form FormGetClient
-	if err:= c.ShouldBind(&form); err != nil{}
+	if err := c.ShouldBind(&form); err != nil {
+	}
 
+	// Obtenemos de la base de datos todos los clientes o lo que coincida con el filtro.
+	// El filtro depende de lo parseado del url.
 	coll := app.mongoclient.Database("tarea1").Collection("clients")
-
-	cursor, err := coll.Find(context.TODO(), form.toBsonD() )
-	if err != nil{
-		c.Status(500)
+	cursor, err := coll.Find(context.TODO(), form.toFilter())
+	if err != nil {
+		c.JSON(400, response)
 		return
 	}
 
+	// Aqui recuperamos los clientes
 	var results []Client
-	
 	err = cursor.All(context.TODO(), &results)
-	if err != nil{
-		c.Status(500 )
+	if err != nil {
+		c.JSON(400, response)
 		return
 	}
 
-	response := TransformAll(results)
-
-
-	c.JSON(200, response)
-	return
-}
-
-func (app *App) get_clients_with_id(c *gin.Context) {
-
-	id := c.Param("id")
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return
-	}
-
-	coll := app.mongoclient.Database("tarea1").Collection("clients")
-	filter := bson.D{{Key: "_id", Value: oid}}
-	var client Client
-	err = coll.FindOne(context.TODO(), filter).Decode(&client)
-	if err != nil {
-		if err == mongo.ErrNoDocuments{
-			c.JSON(404, Message{Message:"Usuario no encontrado"})
+	// Preparamos la respuesta
+	data := []map[string]interface{}{}
+	for _, client := range results {
+		cliente := map[string]interface{}{
+			"_id":       client.ID.Hex(),
+			"email":     client.Email,
+			"name":      client.Name,
+			"last_name": client.Last_name,
+			"rut":       client.Rut,
 		}
-		return
+		data = append(data, cliente)
 	}
+	response = map[string]interface{}{"data": data}
 
-	response := ResPersonalData{Data: PersonalData{
-		ID:        oid.Hex(),
-		Email:     client.Email,
-		Name:      client.Name,
-		Last_name: client.Last_name,
-		Rut:       client.Rut,
-	}}
 	c.JSON(200, response)
 	return
 }
 
-func (app *App) put_clients_with_id(c *gin.Context) {
-	c.Status(404)
-	id := c.Param("id")
-	oid, err := primitive.ObjectIDFromHex(id)
+func (app *App) getClientByID(c *gin.Context) {
+	// Respuesta predeterminada
+	response := map[string]interface{}{"message": "Cliente no encontrado"}
 
-	var changes RegisterClient
-	if err := c.ShouldBind(&changes); err != nil {
+	// Parseamos el id
+	id := c.Param("id")
+
+	// Convertimos a ObjectID
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		// El id proporcionado no es correcto
+		response["message"] = "El ID proporcionado no es correcto."
+		c.JSON(400, response)
 		return
 	}
 
 	coll := app.mongoclient.Database("tarea1").Collection("clients")
 	filter := bson.D{{Key: "_id", Value: oid}}
-
-	var old_client Client
-	err = coll.FindOne(context.TODO(), filter).Decode(&old_client)
+	var cliente Client
+	err = coll.FindOne(context.TODO(), filter).Decode(&cliente)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			c.JSON(404, Message{Message: "Usuario no encontrado"})
-			return
+			// Cliente no encontrado
+			c.JSON(404, response)
 		}
+		return
 	}
 
-	bsonBytes, err := bson.Marshal(changes)
+	// Preparamos la respuesta
+	response = map[string]interface{}{
+		"data": map[string]interface{}{
+			"_id":       id,
+			"email":     cliente.Email,
+			"name":      cliente.Name,
+			"last_name": cliente.Last_name,
+			"rut":       cliente.Rut,
+		},
+	}
+
+	c.JSON(200, response)
+	return
+}
+
+func (app *App) putClientByID(c *gin.Context) {
+	// Respuesta predeterminada
+	response := map[string]interface{}{"message": "Cliente no encontrado"}
+
+	// Parseamos y convertimos el ID
+	id := c.Param("id")
+	oid, err := primitive.ObjectIDFromHex(id)
+
+	// Parseamos el payload con los cambios a realizar al cliente
+	var cambios Client
+	if err := c.ShouldBind(&cambios); err != nil {
+		response["message"] = "Formato incorrecto"
+		c.JSON(400, response)
+	}
+
+	coll := app.mongoclient.Database("tarea1").Collection("clients")
+
+	// Verificamos si existe el cliente y lo obtenemos para luego mostrarlo sin los cambios
+	var cliente Client
+	filter := bson.D{{Key: "_id", Value: oid}}
+	err = coll.FindOne(context.TODO(), filter).Decode(&cliente)
 	if err != nil {
-
+		if err == mongo.ErrNoDocuments {
+			c.JSON(404, response)
+		}
+		return
 	}
 
-	var bsonDoc bson.D
-	err = bson.Unmarshal(bsonBytes, &bsonDoc)
-	if err != nil {
-
-	}
-
-	update := bson.D{{Key: "$set", Value: bsonDoc}}
+	update := bson.M{"$set": cambios}
 
 	result, err := coll.UpdateOne(context.TODO(), filter, update)
-
 	if err != nil {
-		
+		response["message"] = "Error al actualizar el cliente"
 	}
 	var zero int64 = 0
 	if result.MatchedCount == zero {
-		c.JSON(404, Message{Message: "Usuario no encontrado"})
+		c.JSON(404, response)
 		return
 	}
 	if result.ModifiedCount == 1 || result.MatchedCount == 1 {
-		response := ResPersonalData{Data: PersonalData{
-			ID:        oid.Hex(),
-			Email:     old_client.Email,
-			Name:      old_client.Name,
-			Last_name: old_client.Last_name,
-			Rut:       old_client.Rut,
-		}}
+
+		response = map[string]interface{}{
+			"data": map[string]interface{}{
+				"_id":       id,
+				"email":     cliente.Email,
+				"name":      cliente.Name,
+				"last_name": cliente.Last_name,
+				"rut":       cliente.Rut,
+			},
+		}
 
 		c.JSON(200, response)
 		return
 	}
-
+	response["message"] = "Error al actualizar el cliente"
+	c.JSON(400, response)
 }
 
-func (app *App) del_clients_with_id(c *gin.Context) {
-	c.Status(400)
+func (app *App) delClientByID(c *gin.Context) {
+	// Respuesta predeterminada
+	response := map[string]interface{}{"message": "Cliente no encontrado"}
+
+	// Parseamos el id y lo convertimos en ObjectID
 	id := c.Param("id")
 	oid, _ := primitive.ObjectIDFromHex(id)
 
 	coll := app.mongoclient.Database("tarea1").Collection("clients")
+
+	// Buscamos en la db al cliente y lo guardamos para luego mostrarlo
 	filter := bson.D{{Key: "_id", Value: oid}}
-	var client Client
-	err := coll.FindOne(context.TODO(), filter).Decode(&client)
+	var cliente Client
+	err := coll.FindOne(context.TODO(), filter).Decode(&cliente)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			c.JSON(404, Message{Message: "Usuario no encontrado"})
+			c.JSON(404, response)
 			return
 		}
 	}
-	result, _ := coll.DeleteOne(context.TODO(), filter)
+	result, err := coll.DeleteOne(context.TODO(), filter)
+	if err != nil {
+		response["message"] = "Error al eliminar el cliente"
+		c.JSON(400, response)
+		return
+	}
 	if result.DeletedCount == 1 {
-		response := ResPersonalData{Data: PersonalData{
-			ID:        oid.Hex(),
-			Email:     client.Email,
-			Name:      client.Name,
-			Last_name: client.Last_name,
-			Rut:       client.Rut,
-		}}
+		response = map[string]interface{}{
+			"data": map[string]interface{}{
+				"_id":       id,
+				"email":     cliente.Email,
+				"name":      cliente.Name,
+				"last_name": cliente.Last_name,
+				"rut":       cliente.Rut,
+			},
+		}
+
 		c.JSON(200, response)
+		return
 	}
 
 }
-
-
-type BindFile struct{
-	ID		string					`form:"id" binding:"required"`
-	File	*multipart.FileHeader	`form:"file" binding:"required"`
-}
-
-type  
-
-func (app *App) Protect(c *gin.Context) {
-	var bind BindFile
-	if err := c.ShouldBind(&bind); err != nil{
-
-	}
-
-	file := bind.File
-
-	err := c.SaveUploadedFile(file, "uploads/" + file.Filename)
-	if err != nil{
-
-	}
-
-	token, err := pdfAuth()
-	coll := app.mongoclient.Database("tarea1").Collection("tokens")
-
-}
-
-
 
 func main() {
 	// Cargar variables de entorno
@@ -539,9 +373,8 @@ func main() {
 		log.Fatal("Error al leer el archivo .env")
 	}
 
-	// MongoDB
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().ApplyURI(os.Getenv("MONGODB_URI")).SetServerAPIOptions(serverAPI)
+	// Conexion con MongoDB
+	opts := options.Client().ApplyURI(os.Getenv("MONGODB_URI")).SetServerAPIOptions(options.ServerAPI(options.ServerAPIVersion1))
 	mongoclient, err := mongo.Connect(context.TODO(), opts)
 	if err != nil {
 		panic(err)
@@ -558,18 +391,17 @@ func main() {
 
 	// Gin
 	r := gin.Default()
-	r.Static("/uploads","./uploads")
+	r.Static("/uploads", "./uploads")
 	r.MaxMultipartMemory = 8 << 20
-	r.POST("/api/protect", app.Protect)
+	//r.POST("/api/protect", app.Protect)
 
-	r.POST("/login", app.login)
-	r.POST("/register", app.register)
-	r.POST("/api/clients", app.register_client)
-	r.GET("/api/clients", app.get_clients)
-	r.GET("/api/clients/:id", app.get_clients_with_id)
-	r.PUT("/api/clients/:id", app.put_clients_with_id)
-	r.DELETE("/api/clients/:id", app.del_clients_with_id)
-	
+	r.POST("/login", app.LoginUsuario)
+	r.POST("/register", app.RegistrarUsuario)
+	r.POST("/api/clients", app.RegistarCliente)
+	r.GET("/api/clients", app.getClients)
+	r.GET("/api/clients/:id", app.getClientByID)
+	r.PUT("/api/clients/:id", app.putClientByID)
+	r.DELETE("/api/clients/:id", app.delClientByID)
 
 	r.Run(fmt.Sprintf("%s:%s", os.Getenv("HOST"), os.Getenv("PORT")))
 }

@@ -32,11 +32,11 @@ type RegisterClient struct {
 }
 
 type PersonalData struct {
-	ID        string 			 `json:"id" bson:"id"`
-	Name      string             `json:"name" bson:"name"`
-	Last_name string             `json:"last_name" bson:"last_name"`
-	Rut       string             `json:"rut" bson:"rut`
-	Email     string             `json:"email" bson:"email"`
+	ID        string `json:"id" bson:"id"`
+	Name      string `json:"name" bson:"name"`
+	Last_name string `json:"last_name" bson:"last_name"`
+	Rut       string `json:"rut" bson:"rut"`
+	Email     string `json:"email" bson:"email"`
 }
 
 type ResPersonalData struct {
@@ -46,7 +46,6 @@ type ResPersonalData struct {
 type ResArrayData struct {
 	Data []PersonalData `json:"data"`
 }
-
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -134,7 +133,7 @@ func main() {
 
 				if re.StatusCode == 200 {
 					fmt.Println("¡Registro exitoso!")
-				} else{
+				} else {
 					fmt.Println("Ha ocurrido un error al registrarse!")
 				}
 			}
@@ -182,7 +181,6 @@ func main() {
 
 							var datos ResArrayData
 							json.NewDecoder(res.Body).Decode(&datos)
-							
 
 							if res.StatusCode == 200 {
 								for _, d := range datos.Data {
@@ -192,7 +190,7 @@ func main() {
 									fmt.Printf("Apellido: %s\n", d.Last_name)
 									fmt.Printf("RUT: %s\n", d.Rut)
 									fmt.Printf("Email: %s\n", d.Email)
-									
+
 								}
 								fmt.Println("---")
 							} else {
@@ -241,7 +239,6 @@ func main() {
 
 							var datos ResArrayData
 							json.NewDecoder(res.Body).Decode(&datos)
-							
 
 							if res.StatusCode == 200 {
 								for _, d := range datos.Data {
@@ -251,7 +248,7 @@ func main() {
 									fmt.Printf("Apellido: %s\n", d.Last_name)
 									fmt.Printf("RUT: %s\n", d.Rut)
 									fmt.Printf("Email: %s\n", d.Email)
-									
+
 								}
 								fmt.Println("---")
 							} else {
@@ -314,7 +311,7 @@ func main() {
 							req.Header.Set("Content-Type", "application/json")
 							client := &http.Client{}
 							res, _ := client.Do(req)
-							if res.StatusCode == 200{
+							if res.StatusCode == 200 {
 								fmt.Println("Cliente modificado con exito!")
 							}
 						}
@@ -330,7 +327,7 @@ func main() {
 
 							client := &http.Client{}
 							res, _ := client.Do(req)
-							if res.StatusCode == 200{
+							if res.StatusCode == 200 {
 								fmt.Println("Cliente eliminado con exito!")
 							}
 						}
