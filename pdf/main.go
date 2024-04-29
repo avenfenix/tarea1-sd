@@ -59,7 +59,7 @@ func (op *Operations) startTask(tool string) {
 func (op *Operations) addFile(filename string) error {
 	// Verificar si el archivo existe
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		return fmt.Errorf("El archivo especificado no existe: %s", filename)
+		return fmt.Errorf("el archivo especificado no existe: %s", filename)
 	}
 
 	// Construir la URL de la solicitud
@@ -68,7 +68,7 @@ func (op *Operations) addFile(filename string) error {
 	// Abrir el archivo
 	file, err := os.Open(filename)
 	if err != nil {
-		return fmt.Errorf("Error al abrir el archivo: %v", err)
+		return fmt.Errorf("error al abrir el archivo: %v", err)
 	}
 	defer file.Close()
 
@@ -79,10 +79,10 @@ func (op *Operations) addFile(filename string) error {
 	// Agregar el archivo al formulario
 	part, err := writer.CreateFormFile("file", filepath.Base(filename))
 	if err != nil {
-		return fmt.Errorf("Error al crear la parte del formulario: %v", err)
+		return fmt.Errorf("error al crear la parte del formulario: %v", err)
 	}
 	if _, err = io.Copy(part, file); err != nil {
-		return fmt.Errorf("Error al copiar el contenido del archivo: %v", err)
+		return fmt.Errorf("error al copiar el contenido del archivo: %v", err)
 	}
 
 	// Agregar el parámetro "task" al formulario
@@ -90,13 +90,13 @@ func (op *Operations) addFile(filename string) error {
 
 	// Cerrar el escritor multipart
 	if err := writer.Close(); err != nil {
-		return fmt.Errorf("Error al cerrar el escritor multipart: %v", err)
+		return fmt.Errorf("error al cerrar el escritor multipart: %v", err)
 	}
 
 	// Crear la solicitud HTTP POST
 	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
-		return fmt.Errorf("Error al crear la solicitud HTTP: %v", err)
+		return fmt.Errorf("error al crear la solicitud http: %v", err)
 	}
 
 	// Establecer el tipo de contenido en la solicitud
@@ -108,14 +108,14 @@ func (op *Operations) addFile(filename string) error {
 	// Realizar la solicitud HTTP
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error al realizar la solicitud HTTP: %v", err)
+		return fmt.Errorf("error al realizar la solicitud http: %v", err)
 	}
 	defer resp.Body.Close()
 
 	// Decodificar la respuesta JSON
 	var response map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return fmt.Errorf("Error al decodificar la respuesta JSON: %v", err)
+		return fmt.Errorf("error al decodificar la respuesta json: %v", err)
 	}
 
 	// Verificar si el archivo se agregó correctamente
@@ -127,7 +127,7 @@ func (op *Operations) addFile(filename string) error {
 		return nil
 	}
 
-	return fmt.Errorf("Error al agregar el archivo: %v", response)
+	return fmt.Errorf("error al agregar el archivo: %v", response)
 }
 
 func (op *Operations) execute(password string) {
@@ -151,14 +151,10 @@ func (op *Operations) execute(password string) {
 	}
 	defer resp.Body.Close()
 
-	// Imprimir la respuesta del servidor
-	fmt.Println("Response status:", resp.Status)
-	fmt.Println("Response headers:", resp.Header)
 }
 
-func (op *Operations) download(outputFilename string) {
+func (op *Operations) download(outputFilename string, inputPath string) {
 	url := fmt.Sprintf("https://%s/v1/download/%s", op.Server, op.TaskID)
-	fmt.Println("Download URL:", url) // Imprime la URL de descarga
 
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+op.Token)
@@ -169,18 +165,24 @@ func (op *Operations) download(outputFilename string) {
 		return
 	}
 
-	out, _ := os.Create(outputFilename)
+	// Obtener el directorio del archivo de entrada
+	outputDir := filepath.Dir(inputPath)
+
+	// Concatenar el directorio y el nombre de archivo de salida
+	outputPath := filepath.Join(outputDir, outputFilename)
+
+	out, _ := os.Create(outputPath)
 	defer out.Close()
 	io.Copy(out, resp.Body)
 	resp.Body.Close()
 
-	fmt.Println("Download successful")
+	fmt.Println("Descargado en:", outputPath)
 }
 
 func main() {
 	publicKey := "project_public_db7deec963dc9219b319768d2766bfc6_9-1mScb0a712112737d004c62656bb16f2eb1"
 	op := NewOperations(publicKey)
-	op.startTask("protegido")
+	op.startTask("protect")
 
 	var password, path string
 
@@ -191,9 +193,8 @@ func main() {
 	fmt.Scanln(&path)
 
 	op.addFile(path)
-	fmt.Println("Files to be processed:", op.Files)
 	op.execute(password)
 
-	fileName := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)) + "_protected.pdf"
-	op.download(fileName)
+	fileName := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)) + "_protegido.pdf"
+	op.download(fileName, path)
 }
