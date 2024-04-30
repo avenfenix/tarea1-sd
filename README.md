@@ -26,7 +26,7 @@
 #### `/register`
 
 
-- [ ] No filtra bien a los ya registrados (correo y rut).
+- [x] No filtra bien a los ya registrados (correo y rut).
 
 ## Persistencia de datos
 
