@@ -21,14 +21,6 @@
 - Ingresar como usuario para obtener su ID. 
 - Consultar a la API de iLovePDF para proteger los archivos subidos.
 
-
-## iLovePDF
-- [x] Pedir Bearer Token
-- [x] Iniciar tarea de proteccion
-- [x] Subir archivo PDF
-- [x] Procesar (proteger) archivo PDF 
-- [ ] Descargar archivo PDF protegido
-
 ## Endpoints
 
 #### `/register`

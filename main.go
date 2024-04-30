@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
@@ -32,7 +35,7 @@ type RegisterClient struct {
 }
 
 type PersonalData struct {
-	ID        string `json:"id" bson:"id"`
+	ID        string `json:"_id" bson:"_id"`
 	Name      string `json:"name" bson:"name"`
 	Last_name string `json:"last_name" bson:"last_name"`
 	Rut       string `json:"rut" bson:"rut"`
@@ -90,12 +93,21 @@ func main() {
 				res, _ := client.Do(req)
 				defer res.Body.Close()
 
-				if res.StatusCode == 200 {
-					fmt.Println("¡Login exitoso!")
-					menu = false
-					menu_usuario = true
-				} else {
-					fmt.Println("Ha ocurrido un error al iniciar sesion!")
+				switch res.StatusCode {
+				case 200:
+					{
+						fmt.Println("¡Login exitoso!")
+						menu = false
+						menu_usuario = true
+					}
+				case 404:
+					{
+						fmt.Println("Usuario no encontrado")
+					}
+				case 500:
+					{
+						fmt.Println("Ha ocurrido un error al iniciar sesion!")
+					}
 				}
 
 			}
@@ -345,8 +357,81 @@ func main() {
 
 		case "2":
 			{
-				// Proteccion
+				var ID, ruta string
+				fmt.Print("Escriba el ID del cliente objetivo: ")
+				fmt.Scanln(&ID)
+				fmt.Print("Escriba la ruta donde se encuentra el archivo (incluya el nombre): ")
+				fmt.Scanln(&ruta)
 
+				// Ruta del archivo PDF
+				file, err := os.Open(ruta)
+				if err != nil {
+					fmt.Println("Error al abrir el archivo:", err)
+					return
+				}
+				defer file.Close()
+
+				// Crear un cuerpo de solicitud
+				body := &bytes.Buffer{}
+				writer := multipart.NewWriter(body)
+				part, err := writer.CreateFormFile("file", filepath.Base(ruta))
+				if err != nil {
+					fmt.Println("Error al crear el formulario del archivo:", err)
+					return
+				}
+				_, err = io.Copy(part, file)
+				if err != nil {
+					fmt.Println("Error al copiar el archivo al formulario:", err)
+					return
+				}
+				writer.WriteField("id", ID)
+				err = writer.Close()
+				if err != nil {
+					fmt.Println("Error al cerrar el escritor del formulario:", err)
+					return
+				}
+
+				// Crear solicitud HTTP
+				url := fmt.Sprintf("http://%s:%s/api/protect", os.Getenv("HOST"), os.Getenv("PORT"))
+				req, err := http.NewRequest("POST", url, body)
+				if err != nil {
+					fmt.Println("Error al crear la solicitud HTTP:", err)
+					return
+				}
+				req.Header.Set("Content-Type", writer.FormDataContentType())
+
+				// Realizar la solicitud
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				if err != nil {
+					fmt.Println("Error al realizar la solicitud HTTP:", err)
+					return
+				}
+				defer resp.Body.Close()
+
+				// Procesar la respuesta
+				if resp.StatusCode != http.StatusOK {
+					fmt.Println("La solicitud no fue exitosa. Código de estado:", resp.StatusCode)
+					return
+				}
+
+				// Crear archivo protegido en la misma carpeta
+				nombreArchivoProtegido := "protegido_" + filepath.Base(ruta)
+				archivoProtegido, err := os.Create(nombreArchivoProtegido)
+				if err != nil {
+					fmt.Println("Error al crear el archivo protegido:", err)
+					return
+				}
+				defer archivoProtegido.Close()
+
+				// Copiar el contenido de la respuesta al archivo protegido
+				_, err = io.Copy(archivoProtegido, resp.Body)
+				if err != nil {
+					fmt.Println("Error al guardar el archivo protegido:", err)
+					return
+				}
+
+				fmt.Printf("¡Protección exitosa! Su archivo se encuentra en: %s\n", nombreArchivoProtegido)
 			}
 
 		case "3":
