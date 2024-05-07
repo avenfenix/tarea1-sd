@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -362,6 +363,8 @@ func main() {
 				fmt.Scanln(&ID)
 				fmt.Print("Escriba la ruta donde se encuentra el archivo (incluya el nombre): ")
 				fmt.Scanln(&ruta)
+				nombreArchivo := filepath.Base(ruta)
+				nombre_solo := strings.TrimSuffix(nombreArchivo, filepath.Ext(nombreArchivo))
 
 				// Ruta del archivo PDF
 				file, err := os.Open(ruta)
@@ -415,23 +418,7 @@ func main() {
 					return
 				}
 
-				// Crear archivo protegido en la misma carpeta
-				nombreArchivoProtegido := "protegido_" + filepath.Base(ruta)
-				archivoProtegido, err := os.Create(nombreArchivoProtegido)
-				if err != nil {
-					fmt.Println("Error al crear el archivo protegido:", err)
-					return
-				}
-				defer archivoProtegido.Close()
-
-				// Copiar el contenido de la respuesta al archivo protegido
-				_, err = io.Copy(archivoProtegido, resp.Body)
-				if err != nil {
-					fmt.Println("Error al guardar el archivo protegido:", err)
-					return
-				}
-
-				fmt.Printf("¡Protección exitosa! Su archivo se encuentra en: %s\n", nombreArchivoProtegido)
+				fmt.Printf("¡Protección exitosa! Su archivo se encuentra en: files/%s_protegido.pdf\n", nombre_solo)
 			}
 
 		case "3":

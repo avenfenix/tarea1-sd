@@ -398,6 +398,7 @@ func NewILovePdf(publicKey string) *ILovePdf {
 
 type Operations struct {
 	*ILovePdf
+	Token  string
 	TaskID string
 	Tool   string
 	Server string
@@ -405,11 +406,33 @@ type Operations struct {
 }
 
 func NewOperations(publicKey string) *Operations {
-	return &Operations{ILovePdf: NewILovePdf(publicKey)}
+	op := &Operations{ILovePdf: NewILovePdf(publicKey)}
+	op.retrieveToken()
+	return op
+}
+
+// Metodo para guardar el token
+func (op *Operations) retrieveToken() {
+	if op.Token == "" {
+		resp, err := http.PostForm(APIEntryPoint1, map[string][]string{
+			"public_key": {op.PublicKey},
+		})
+		if err != nil {
+			return
+		}
+		var result map[string]string
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			resp.Body.Close()
+			return
+		}
+		resp.Body.Close()
+		op.Token = result["token"]
+	}
 }
 
 func (op *Operations) startTask(tool string) {
 	op.Tool = tool
+	op.retrieveToken() //Recibir token
 	req, _ := http.NewRequest("GET", APIEntryPoint2+"/"+tool, nil)
 	req.Header.Set("Authorization", "Bearer "+op.Token)
 	resp, _ := http.DefaultClient.Do(req)
@@ -417,7 +440,6 @@ func (op *Operations) startTask(tool string) {
 	json.NewDecoder(resp.Body).Decode(&result)
 	resp.Body.Close()
 	op.TaskID, op.Server = result["task"].(string), result["server"].(string)
-
 }
 
 func (op *Operations) addFile(filename string) error {
